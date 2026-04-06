@@ -13,7 +13,15 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ar" dir="rtl">
-      <body className="antialiased bg-gray-50 text-gray-900 font-sans">
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800&display=swap"
+          rel="stylesheet"
+        />
+      </head>
+      <body className="antialiased bg-[#0B1120] text-gray-100" style={{ fontFamily: "'Tajawal', sans-serif" }}>
         {children}
       </body>
     </html>
