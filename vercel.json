@@ -1,0 +1,12 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/run-scenarios",
+      "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/cron/sync-customers",
+      "schedule": "0 * * * *"
+    }
+  ]
+}
