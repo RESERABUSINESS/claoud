@@ -11,15 +11,21 @@
   "dependencies": {
     "@prisma/adapter-pg": "^7.6.0",
     "@prisma/client": "^7.6.0",
+    "bcryptjs": "^3.0.3",
     "clsx": "^2.1.1",
+    "crypto-js": "^4.2.0",
     "next": "14.2.35",
+    "next-auth": "^4.24.13",
     "prisma": "^7.6.0",
     "react": "^18",
     "react-dom": "^18",
     "recharts": "^3.8.1",
-    "tailwind-merge": "^3.5.0"
+    "tailwind-merge": "^3.5.0",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/crypto-js": "^4.2.2",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",

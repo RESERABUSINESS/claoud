@@ -8,21 +8,100 @@ datasource db {
 }
 
 // =============================================
+// المستخدم (Authentication)
+// =============================================
+model User {
+  id             String    @id @default(cuid())
+  name           String
+  email          String    @unique
+  hashedPassword String
+  image          String?
+  isActive       Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  // علاقة المستخدم بالمتاجر (Multi-tenancy)
+  storeUsers     StoreUser[]
+  sessions       Session[]
+  activityLogs   ActivityLog[]
+
+  @@index([email])
+  @@map("users")
+}
+
+// =============================================
+// جلسة المستخدم
+// =============================================
+model Session {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token        String   @unique
+  expiresAt    DateTime
+  ipAddress    String?
+  userAgent    String?
+  createdAt    DateTime @default(now())
+
+  @@index([userId])
+  @@index([token])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+// =============================================
+// ربط المستخدم بالمتجر (Multi-tenancy)
+// =============================================
+model StoreUser {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  storeId   String
+  store     Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  role      StoreRole @default(OWNER)
+  createdAt DateTime  @default(now())
+
+  @@unique([userId, storeId])
+  @@index([userId])
+  @@index([storeId])
+  @@map("store_users")
+}
+
+// =============================================
+// سجل النشاطات
+// =============================================
+model ActivityLog {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  action    String   // login, logout, password_change, store_connect, etc.
+  details   String?  @db.Text
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([userId, createdAt])
+  @@index([action])
+  @@map("activity_logs")
+}
+
+// =============================================
 // المتجر
 // =============================================
 model Store {
-  id         String   @id @default(cuid())
-  name       String
-  platform   Platform
-  apiKey     String
-  apiSecret  String
-  webhookUrl String?
-  isActive   Boolean  @default(true)
-  createdAt  DateTime @default(now())
+  id              String   @id @default(cuid())
+  name            String
+  platform        Platform
+  apiKey          String   // مشفّر بـ AES
+  apiSecret       String   // مشفّر بـ AES
+  webhookUrl      String?
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
 
-  customers  Customer[]
-  scenarios  Scenario[]
-  coupons    Coupon[]
+  storeUsers      StoreUser[]
+  customers       Customer[]
+  scenarios       Scenario[]
+  coupons         Coupon[]
 
   @@index([platform])
   @@map("stores")
@@ -178,4 +257,10 @@ enum CampaignStatus {
   OPENED    // تم الفتح
   CONVERTED // تم التحويل (شراء)
   EXPIRED   // منتهي
+}
+
+enum StoreRole {
+  OWNER   // مالك المتجر
+  ADMIN   // مدير
+  VIEWER  // مشاهد فقط
 }
