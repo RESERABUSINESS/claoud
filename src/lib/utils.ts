@@ -20,12 +20,52 @@ export function formatDate(date: Date | string): string {
   }).format(new Date(date));
 }
 
-export function getOfferTypeLabel(type: string): string {
+export function getDiscountTypeLabel(type: string): string {
   const labels: Record<string, string> = {
     PERCENTAGE: "نسبة مئوية",
     FIXED: "مبلغ ثابت",
-    BUY_X_GET_Y: "اشتري واحصل",
     FREE_SHIPPING: "شحن مجاني",
   };
   return labels[type] || type;
+}
+
+export function getScenarioTypeLabel(type: string): string {
+  const labels: Record<string, string> = {
+    ABANDONED_CART: "سلة متروكة",
+    DORMANT: "عميل خامل",
+    WELCOME: "ترحيب",
+    VIP: "عميل مميز",
+    BIRTHDAY: "عيد ميلاد",
+  };
+  return labels[type] || type;
+}
+
+export function getSegmentLabel(segment: string): string {
+  const labels: Record<string, string> = {
+    NEW: "جديد",
+    ACTIVE: "نشط",
+    DORMANT: "خامل",
+    VIP: "مميز",
+  };
+  return labels[segment] || segment;
+}
+
+export function getChannelLabel(channel: string): string {
+  const labels: Record<string, string> = {
+    WHATSAPP: "واتساب",
+    SMS: "رسالة نصية",
+    EMAIL: "بريد إلكتروني",
+  };
+  return labels[channel] || channel;
+}
+
+export function getCampaignStatusLabel(status: string): string {
+  const labels: Record<string, string> = {
+    PENDING: "بانتظار الإرسال",
+    SENT: "تم الإرسال",
+    OPENED: "تم الفتح",
+    CONVERTED: "تم التحويل",
+    EXPIRED: "منتهي",
+  };
+  return labels[status] || status;
 }

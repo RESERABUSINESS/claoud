@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getOffersByStore, createOffer } from "@/services/offers";
-import type { ApiResponse, CreateOfferInput } from "@/types";
+import { getScenariosByStore, createScenario } from "@/services/offers";
+import type { ApiResponse, CreateScenarioInput } from "@/types";
 
 export async function GET(request: NextRequest) {
   try {
@@ -12,11 +12,11 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const offers = await getOffersByStore(storeId);
-    return NextResponse.json<ApiResponse>({ success: true, data: offers });
+    const scenarios = await getScenariosByStore(storeId);
+    return NextResponse.json<ApiResponse>({ success: true, data: scenarios });
   } catch {
     return NextResponse.json<ApiResponse>(
-      { success: false, error: "حدث خطأ في جلب العروض" },
+      { success: false, error: "حدث خطأ في جلب السيناريوهات" },
       { status: 500 }
     );
   }
@@ -24,23 +24,23 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const body = (await request.json()) as CreateOfferInput;
+    const body = (await request.json()) as CreateScenarioInput;
 
-    if (!body.storeId || !body.name || !body.type || !body.value || !body.startsAt) {
+    if (!body.storeId || !body.name || !body.type || !body.discountType || !body.messageTemplate) {
       return NextResponse.json<ApiResponse>(
         { success: false, error: "البيانات المطلوبة ناقصة" },
         { status: 400 }
       );
     }
 
-    const offer = await createOffer(body);
+    const scenario = await createScenario(body);
     return NextResponse.json<ApiResponse>(
-      { success: true, data: offer, message: "تم إنشاء العرض بنجاح" },
+      { success: true, data: scenario, message: "تم إنشاء السيناريو بنجاح" },
       { status: 201 }
     );
   } catch {
     return NextResponse.json<ApiResponse>(
-      { success: false, error: "حدث خطأ في إنشاء العرض" },
+      { success: false, error: "حدث خطأ في إنشاء السيناريو" },
       { status: 500 }
     );
   }

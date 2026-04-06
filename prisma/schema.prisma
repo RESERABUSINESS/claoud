@@ -7,89 +7,175 @@ datasource db {
   provider = "postgresql"
 }
 
+// =============================================
 // المتجر
+// =============================================
 model Store {
-  id        String   @id @default(cuid())
-  name      String
-  domain    String   @unique
-  apiKey    String   @unique @default(cuid())
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id         String   @id @default(cuid())
+  name       String
+  platform   Platform
+  apiKey     String
+  apiSecret  String
+  webhookUrl String?
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
 
-  offers    Offer[]
-  customers Customer[]
+  customers  Customer[]
+  scenarios  Scenario[]
+  coupons    Coupon[]
 
+  @@index([platform])
   @@map("stores")
 }
 
-// العرض / الخصم
-model Offer {
-  id          String    @id @default(cuid())
-  storeId     String
-  store       Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
-  name        String
-  description String?
-  type        OfferType
-  value       Float     // نسبة أو مبلغ ثابت
-  minOrderAmount Float? // الحد الأدنى للطلب
-  maxDiscount    Float? // الحد الأقصى للخصم
-  code        String?   // كود الخصم (اختياري)
-  isActive    Boolean   @default(true)
-  startsAt    DateTime
-  endsAt      DateTime?
-  conditions  Json?     // شروط إضافية
-  usageLimit  Int?      // حد الاستخدام الكلي
-  usageCount  Int       @default(0)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-
-  redemptions Redemption[]
-
-  @@index([storeId])
-  @@index([code])
-  @@map("offers")
-}
-
+// =============================================
 // العميل
+// =============================================
 model Customer {
-  id        String   @id @default(cuid())
-  storeId   String
-  store     Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
-  email     String
-  name      String?
-  phone     String?
-  totalOrders Int    @default(0)
-  totalSpent  Float  @default(0)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id            String        @id @default(cuid())
+  storeId       String
+  store         Store         @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  externalId    String        // معرّف العميل في المنصة الخارجية
+  name          String?
+  phone         String?
+  email         String?
+  totalOrders   Int           @default(0)
+  totalSpent    Float         @default(0)
+  lastOrderDate DateTime?
+  birthday      DateTime?
+  segment       CustomerSegment @default(NEW)
+  createdAt     DateTime      @default(now())
 
-  redemptions Redemption[]
+  campaigns     Campaign[]
 
-  @@unique([storeId, email])
+  @@unique([storeId, externalId])
   @@index([storeId])
+  @@index([storeId, segment])
+  @@index([email])
+  @@index([phone])
   @@map("customers")
 }
 
-// سجل استخدام العروض
-model Redemption {
-  id         String   @id @default(cuid())
-  offerId    String
-  offer      Offer    @relation(fields: [offerId], references: [id], onDelete: Cascade)
-  customerId String
-  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  orderAmount Float
-  discount    Float
-  createdAt  DateTime @default(now())
+// =============================================
+// السيناريو
+// =============================================
+model Scenario {
+  id              String        @id @default(cuid())
+  storeId         String
+  store           Store         @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  name            String
+  type            ScenarioType
+  isActive        Boolean       @default(true)
+  trigger         Json          // شروط تفعيل السيناريو
+  action          Json          // الإجراءات المطلوبة
+  discountType    DiscountType
+  discountValue   Float
+  couponPrefix    String?       // بادئة الكوبون مثل "WELCOME"
+  messageTemplate String        @db.Text // قالب الرسالة
+  waitDuration    Int           @default(0) // مدة الانتظار بالدقائق
+  channel         Channel       @default(WHATSAPP)
+  createdAt       DateTime      @default(now())
 
-  @@index([offerId])
-  @@index([customerId])
-  @@map("redemptions")
+  campaigns       Campaign[]
+
+  @@index([storeId])
+  @@index([storeId, type])
+  @@index([storeId, isActive])
+  @@map("scenarios")
 }
 
-enum OfferType {
-  PERCENTAGE  // نسبة مئوية
-  FIXED       // مبلغ ثابت
-  BUY_X_GET_Y // اشتري X واحصل على Y
+// =============================================
+// الحملة — كل مرة يتفعّل سيناريو لعميل
+// =============================================
+model Campaign {
+  id          String         @id @default(cuid())
+  scenarioId  String
+  scenario    Scenario       @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
+  customerId  String
+  customer    Customer       @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  couponCode  String?
+  status      CampaignStatus @default(PENDING)
+  sentAt      DateTime?
+  openedAt    DateTime?
+  convertedAt DateTime?
+  revenue     Float          @default(0)
+  createdAt   DateTime       @default(now())
+
+  coupon      Coupon?
+
+  @@index([scenarioId])
+  @@index([customerId])
+  @@index([status])
+  @@index([scenarioId, status])
+  @@index([createdAt])
+  @@map("campaigns")
+}
+
+// =============================================
+// الكوبون
+// =============================================
+model Coupon {
+  id            String       @id @default(cuid())
+  storeId       String
+  store         Store        @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  campaignId    String       @unique
+  campaign      Campaign     @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  code          String
+  discountType  DiscountType
+  discountValue Float
+  expiresAt     DateTime?
+  isUsed        Boolean      @default(false)
+  usedAt        DateTime?
+  createdAt     DateTime     @default(now())
+
+  @@unique([storeId, code])
+  @@index([storeId])
+  @@index([code])
+  @@index([expiresAt])
+  @@map("coupons")
+}
+
+// =============================================
+// Enums
+// =============================================
+
+enum Platform {
+  SALLA
+  ZID
+  SHOPIFY
+}
+
+enum CustomerSegment {
+  NEW      // عميل جديد
+  ACTIVE   // عميل نشط
+  DORMANT  // عميل خامل
+  VIP      // عميل مميز
+}
+
+enum ScenarioType {
+  ABANDONED_CART // سلة متروكة
+  DORMANT        // عميل خامل
+  WELCOME        // ترحيب
+  VIP            // عميل مميز
+  BIRTHDAY       // عيد ميلاد
+}
+
+enum DiscountType {
+  PERCENTAGE    // نسبة مئوية
+  FIXED         // مبلغ ثابت
   FREE_SHIPPING // شحن مجاني
+}
+
+enum Channel {
+  WHATSAPP
+  SMS
+  EMAIL
+}
+
+enum CampaignStatus {
+  PENDING   // بانتظار الإرسال
+  SENT      // تم الإرسال
+  OPENED    // تم الفتح
+  CONVERTED // تم التحويل (شراء)
+  EXPIRED   // منتهي
 }

@@ -1,85 +1,116 @@
 import { prisma } from "@/lib/prisma";
-import type { CreateOfferInput } from "@/types";
+import type { CreateScenarioInput } from "@/types";
 
-export async function getOffersByStore(storeId: string) {
-  return prisma.offer.findMany({
+// =============================================
+// السيناريوهات
+// =============================================
+
+export async function getScenariosByStore(storeId: string) {
+  return prisma.scenario.findMany({
     where: { storeId },
     orderBy: { createdAt: "desc" },
   });
 }
 
-export async function getOfferById(id: string) {
-  return prisma.offer.findUnique({
+export async function getScenarioById(id: string) {
+  return prisma.scenario.findUnique({
     where: { id },
-    include: { redemptions: true },
+    include: { campaigns: { take: 10, orderBy: { createdAt: "desc" } } },
   });
 }
 
-export async function createOffer(input: CreateOfferInput) {
-  return prisma.offer.create({
+export async function createScenario(input: CreateScenarioInput) {
+  return prisma.scenario.create({
     data: {
       storeId: input.storeId,
       name: input.name,
-      description: input.description,
       type: input.type,
-      value: input.value,
-      minOrderAmount: input.minOrderAmount,
-      maxDiscount: input.maxDiscount,
-      code: input.code,
-      startsAt: new Date(input.startsAt),
-      endsAt: input.endsAt ? new Date(input.endsAt) : null,
-      conditions: input.conditions ? JSON.parse(JSON.stringify(input.conditions)) : undefined,
-      usageLimit: input.usageLimit,
+      trigger: JSON.parse(JSON.stringify(input.trigger)),
+      action: JSON.parse(JSON.stringify(input.action)),
+      discountType: input.discountType,
+      discountValue: input.discountValue,
+      couponPrefix: input.couponPrefix,
+      messageTemplate: input.messageTemplate,
+      waitDuration: input.waitDuration ?? 0,
+      channel: input.channel ?? "WHATSAPP",
     },
   });
 }
 
-export async function updateOffer(id: string, data: Partial<CreateOfferInput>) {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { storeId, startsAt, endsAt, conditions, ...rest } = data;
-  return prisma.offer.update({
+export async function toggleScenario(id: string, isActive: boolean) {
+  return prisma.scenario.update({
+    where: { id },
+    data: { isActive },
+  });
+}
+
+export async function deleteScenario(id: string) {
+  return prisma.scenario.delete({ where: { id } });
+}
+
+// =============================================
+// الحملات
+// =============================================
+
+export async function getCampaignsByScenario(scenarioId: string) {
+  return prisma.campaign.findMany({
+    where: { scenarioId },
+    include: { customer: true, coupon: true },
+    orderBy: { createdAt: "desc" },
+  });
+}
+
+export async function updateCampaignStatus(
+  id: string,
+  status: "SENT" | "OPENED" | "CONVERTED" | "EXPIRED",
+  revenue?: number
+) {
+  const now = new Date();
+  return prisma.campaign.update({
     where: { id },
     data: {
-      ...rest,
-      ...(startsAt && { startsAt: new Date(startsAt) }),
-      ...(endsAt && { endsAt: new Date(endsAt) }),
-      ...(conditions && { conditions: JSON.parse(JSON.stringify(conditions)) }),
+      status,
+      ...(status === "SENT" && { sentAt: now }),
+      ...(status === "OPENED" && { openedAt: now }),
+      ...(status === "CONVERTED" && { convertedAt: now, revenue: revenue ?? 0 }),
     },
   });
 }
 
-export async function deleteOffer(id: string) {
-  return prisma.offer.delete({ where: { id } });
-}
+// =============================================
+// الكوبونات
+// =============================================
 
-export async function validateOffer(code: string, storeId: string, orderAmount: number) {
-  const offer = await prisma.offer.findFirst({
-    where: {
-      code,
-      storeId,
-      isActive: true,
-      startsAt: { lte: new Date() },
-      OR: [{ endsAt: null }, { endsAt: { gte: new Date() } }],
-    },
+export async function validateCoupon(code: string, storeId: string) {
+  const coupon = await prisma.coupon.findUnique({
+    where: { storeId_code: { storeId, code } },
+    include: { campaign: { include: { scenario: true } } },
   });
 
-  if (!offer) return { valid: false, error: "العرض غير موجود أو منتهي" };
-
-  if (offer.usageLimit && offer.usageCount >= offer.usageLimit) {
-    return { valid: false, error: "تم تجاوز حد الاستخدام" };
+  if (!coupon) return { valid: false, error: "الكوبون غير موجود" };
+  if (coupon.isUsed) return { valid: false, error: "الكوبون مستخدم مسبقاً" };
+  if (coupon.expiresAt && coupon.expiresAt < new Date()) {
+    return { valid: false, error: "الكوبون منتهي الصلاحية" };
   }
 
-  if (offer.minOrderAmount && orderAmount < offer.minOrderAmount) {
-    return { valid: false, error: `الحد الأدنى للطلب ${offer.minOrderAmount} ريال` };
-  }
+  return {
+    valid: true,
+    coupon,
+    discountType: coupon.discountType,
+    discountValue: coupon.discountValue,
+  };
+}
 
-  let discount = 0;
-  if (offer.type === "PERCENTAGE") {
-    discount = (orderAmount * offer.value) / 100;
-    if (offer.maxDiscount) discount = Math.min(discount, offer.maxDiscount);
-  } else if (offer.type === "FIXED") {
-    discount = offer.value;
-  }
+export async function redeemCoupon(code: string, storeId: string, revenue: number) {
+  const coupon = await prisma.coupon.update({
+    where: { storeId_code: { storeId, code } },
+    data: { isUsed: true, usedAt: new Date() },
+  });
 
-  return { valid: true, offer, discount };
+  await prisma.campaign.update({
+    where: { id: coupon.campaignId },
+    data: { status: "CONVERTED", convertedAt: new Date(), revenue },
+  });
+
+  return coupon;
 }
