@@ -7,24 +7,26 @@ import type { ApiResponse } from "@/types";
 // =============================================
 
 function isAuthorized(request: NextRequest): boolean {
-  // طريقة 1: Vercel Cron — يرسل CRON_SECRET تلقائياً
+  // طريقة 1: Bearer token في header (معيار OAuth)
   const authHeader = request.headers.get("authorization");
   if (authHeader === `Bearer ${process.env.CRON_SECRET}`) return true;
 
-  // طريقة 2: Secret key في الـ header
+  // طريقة 2: Cloudflare Worker يرسل x-cron-key
   const cronKey = request.headers.get("x-cron-key");
   if (cronKey === process.env.CRON_SECRET) return true;
 
-  // طريقة 3: Secret key كـ query parameter (للاختبار)
-  const queryKey = request.nextUrl.searchParams.get("key");
-  if (queryKey === process.env.CRON_SECRET) return true;
+  // طريقة 3: Query parameter (للاختبار المحلي فقط)
+  if (process.env.NODE_ENV === "development") {
+    const queryKey = request.nextUrl.searchParams.get("key");
+    if (queryKey === process.env.CRON_SECRET) return true;
+  }
 
   return false;
 }
 
 // =============================================
 // GET /api/cron/run-scenarios
-// Vercel Cron يستدعي GET تلقائياً
+// يُستدعى من Cloudflare Workers Cron Trigger
 // =============================================
 
 export async function GET(request: NextRequest) {

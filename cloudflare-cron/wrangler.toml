@@ -1,0 +1,19 @@
+name = "smart-offers-cron"
+main = "src/worker.ts"
+compatibility_date = "2024-12-01"
+
+# ─── Cron Triggers ───────────────────────────
+# */15 * * * *  → تشغيل محرك السيناريوهات كل 15 دقيقة
+# 0 * * * *    → مزامنة العملاء كل ساعة
+[triggers]
+crons = ["*/15 * * * *", "0 * * * *"]
+
+# ─── متغيرات البيئة ──────────────────────────
+# غيّر APP_URL لرابط تطبيقك على Cloudflare Pages
+[vars]
+APP_URL = "https://smart-offers.pages.dev"
+
+# ─── Secret ──────────────────────────────────
+# أضف CRON_SECRET عبر:
+#   wrangler secret put CRON_SECRET
+# لا تكتب السر هنا — استخدم الأمر أعلاه فقط

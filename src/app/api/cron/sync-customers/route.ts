@@ -13,14 +13,17 @@ function isAuthorized(request: NextRequest): boolean {
   const cronKey = request.headers.get("x-cron-key");
   if (cronKey === process.env.CRON_SECRET) return true;
 
-  const queryKey = request.nextUrl.searchParams.get("key");
-  if (queryKey === process.env.CRON_SECRET) return true;
+  if (process.env.NODE_ENV === "development") {
+    const queryKey = request.nextUrl.searchParams.get("key");
+    if (queryKey === process.env.CRON_SECRET) return true;
+  }
 
   return false;
 }
 
 // =============================================
 // GET /api/cron/sync-customers
+// يُستدعى من Cloudflare Workers Cron Trigger
 // =============================================
 
 export async function GET(request: NextRequest) {

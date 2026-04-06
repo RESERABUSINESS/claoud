@@ -1,5 +1,5 @@
 // =============================================
-// إعدادات الـ Cron Jobs
+// إعدادات الـ Cron Jobs — Cloudflare Workers
 // =============================================
 // هذا الملف يوثّق جدولة المهام التلقائية ويوفر ثوابت مشتركة
 //
@@ -31,68 +31,102 @@ export const CRON_MAX_DURATION = {
 } as const;
 
 // =============================================
-// طريقة الربط حسب منصة الاستضافة
+// طريقة الربط مع Cloudflare
 // =============================================
 //
-// ─── Vercel Cron ───────────────────────────
+// ─── الطريقة 1: Cloudflare Workers Cron Triggers (الأفضل) ─────
 //
-// 1. أضف CRON_SECRET في متغيرات البيئة على Vercel Dashboard
+// 1. أنشئ Worker جديد في Cloudflare Dashboard أو استخدم Wrangler CLI:
 //
-// 2. ملف vercel.json (موجود في المشروع):
-//    {
-//      "crons": [
-//        {
-//          "path": "/api/cron/run-scenarios",
-//          "schedule": "*/15 * * * *"
-//        },
-//        {
-//          "path": "/api/cron/sync-customers",
-//          "schedule": "0 * * * *"
+//    npm install -g wrangler
+//    wrangler init smart-offers-cron
+//
+// 2. ملف wrangler.toml:
+//
+//    name = "smart-offers-cron"
+//    main = "src/worker.ts"
+//    compatibility_date = "2024-01-01"
+//
+//    [triggers]
+//    crons = ["*/15 * * * *", "0 * * * *"]
+//
+//    [vars]
+//    APP_URL = "https://your-app.pages.dev"
+//
+// 3. أضف CRON_SECRET كـ secret:
+//    wrangler secret put CRON_SECRET
+//
+// 4. ملف src/worker.ts:
+//
+//    export default {
+//      async scheduled(event: ScheduledEvent, env: Env) {
+//        const headers = {
+//          "x-cron-key": env.CRON_SECRET,
+//          "Content-Type": "application/json",
+//        };
+//
+//        switch (event.cron) {
+//          case "*/15 * * * *":
+//            await fetch(`${env.APP_URL}/api/cron/run-scenarios`, { headers });
+//            break;
+//          case "0 * * * *":
+//            await fetch(`${env.APP_URL}/api/cron/sync-customers`, { headers });
+//            break;
 //        }
-//      ]
+//      },
+//    };
+//
+//    interface Env {
+//      CRON_SECRET: string;
+//      APP_URL: string;
 //    }
 //
-// 3. Vercel يرسل header تلقائياً:
-//    Authorization: Bearer <CRON_SECRET>
+// 5. نشر Worker:
+//    wrangler deploy
 //
-// ─── Railway ───────────────────────────────
+// ─── الطريقة 2: Cloudflare Pages + Functions (إذا التطبيق على Pages) ───
 //
-// 1. أضف CRON_SECRET في متغيرات البيئة
+// 1. أنشئ ملف functions/_middleware.ts أو استخدم Worker منفصل
+//    لأن Cloudflare Pages ما يدعم Cron Triggers مباشرة
 //
-// 2. استخدم Railway Cron Service:
-//    - أنشئ service جديد نوعه Cron
-//    - Schedule: */15 * * * *
-//    - Command:
-//      curl -H "x-cron-key: $CRON_SECRET" https://your-app.railway.app/api/cron/run-scenarios
+// 2. أنشئ Worker مساعد (كما في الطريقة 1) ينادي تطبيقك على Pages
 //
-//    - أنشئ service ثاني:
-//    - Schedule: 0 * * * *
-//    - Command:
-//      curl -H "x-cron-key: $CRON_SECRET" https://your-app.railway.app/api/cron/sync-customers
+// ─── الطريقة 3: Cloudflare Workers + Next.js (OpenNext / @opennextjs/cloudflare) ───
 //
-// ─── VPS / سيرفر خاص ──────────────────────
+// إذا تستخدم @opennextjs/cloudflare لنشر Next.js:
 //
-// 1. أضف crontab:
-//    crontab -e
+// 1. أضف cron triggers في wrangler.toml الخاص بالتطبيق:
 //
-// 2. أضف الأسطر التالية:
-//    */15 * * * * curl -s -H "x-cron-key: YOUR_SECRET" https://your-domain.com/api/cron/run-scenarios
-//    0 * * * *    curl -s -H "x-cron-key: YOUR_SECRET" https://your-domain.com/api/cron/sync-customers
+//    [triggers]
+//    crons = ["*/15 * * * *", "0 * * * *"]
 //
-// ─── GitHub Actions ────────────────────────
+// 2. أضف scheduled handler في open-next.config.ts أو worker entry point
 //
-// أنشئ ملف .github/workflows/cron.yml:
+// 3. Cloudflare يستدعي الـ scheduled event تلقائياً
+//    والـ handler ينادي الـ API routes الداخلية
 //
-//   name: Cron Jobs
-//   on:
-//     schedule:
-//       - cron: '*/15 * * * *'
-//   jobs:
-//     run-scenarios:
-//       runs-on: ubuntu-latest
-//       steps:
-//         - run: |
-//             curl -s -H "x-cron-key: ${{ secrets.CRON_SECRET }}" \
-//               https://your-domain.com/api/cron/run-scenarios
+// ─── الطريقة 4: External Cron Service ─────────────────────
+//
+// استخدم خدمة خارجية مثل cron-job.org أو EasyCron:
+//
+// 1. سجّل في https://cron-job.org (مجاني)
+//
+// 2. أنشئ مهمة 1:
+//    - URL: https://your-app.pages.dev/api/cron/run-scenarios
+//    - Schedule: Every 15 minutes
+//    - Headers: x-cron-key: YOUR_CRON_SECRET
+//
+// 3. أنشئ مهمة 2:
+//    - URL: https://your-app.pages.dev/api/cron/sync-customers
+//    - Schedule: Every 1 hour
+//    - Headers: x-cron-key: YOUR_CRON_SECRET
+//
+// ─── اختبار محلي ─────────────────────────────────────────
+//
+// curl -H "x-cron-key: YOUR_SECRET" http://localhost:3000/api/cron/run-scenarios
+// curl -H "x-cron-key: YOUR_SECRET" http://localhost:3000/api/cron/sync-customers
+//
+// أو عبر wrangler:
+// wrangler dev --test-scheduled
 //
 // =============================================
