@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { sendMessage as dispatchMessage } from "@/services/messaging";
 import type { Channel } from "@/types";
 
 // =============================================
@@ -90,7 +91,9 @@ async function createCampaignWithCoupon(
   expiryDays: number,
   messageTemplate: string,
   channel: Channel,
-  customerName: string | null
+  customerName: string | null,
+  customerPhone: string | null,
+  customerEmail: string | null
 ): Promise<string> {
   const couponCode = await generateUniqueCoupon(couponPrefix, storeId);
 
@@ -138,22 +141,22 @@ async function createCampaignWithCoupon(
     return campaign;
   });
 
-  // إرسال الرسالة (placeholder — يتم ربطه لاحقاً بـ WhatsApp/SMS/Email API)
-  await sendMessage(channel, customerName, finalMessage);
+  // تحديد المستلم حسب القناة
+  const recipient =
+    channel === "EMAIL"
+      ? customerEmail
+      : customerPhone;
+
+  if (recipient) {
+    const result = await dispatchMessage(channel, recipient, finalMessage);
+    if (!result.success) {
+      log.warn(`فشل إرسال رسالة للعميل ${customerId}: ${result.error}`);
+    }
+  } else {
+    log.warn(`العميل ${customerId} ما عنده ${channel === "EMAIL" ? "إيميل" : "رقم جوال"} — تم تخطي الإرسال`);
+  }
 
   return campaign.id;
-}
-
-// =============================================
-// إرسال الرسالة (placeholder)
-// =============================================
-
-async function sendMessage(channel: Channel, recipient: string | null, message: string): Promise<void> {
-  // TODO: ربط بـ WhatsApp Business API / SMS Gateway / Email Provider
-  log.info(`إرسال رسالة عبر ${channel} إلى ${recipient || "عميل"}`, {
-    channel,
-    messageLength: message.length,
-  });
 }
 
 // =============================================
@@ -226,7 +229,9 @@ export async function checkAbandonedCarts(): Promise<ScenarioResult[]> {
             expiryDays,
             scenario.messageTemplate,
             scenario.channel,
-            customer.name
+            customer.name,
+            customer.phone,
+            customer.email
           );
           result.campaignsCreated++;
         } catch (err) {
@@ -306,7 +311,9 @@ export async function checkDormantCustomers(): Promise<ScenarioResult[]> {
             expiryDays,
             scenario.messageTemplate,
             scenario.channel,
-            customer.name
+            customer.name,
+            customer.phone,
+            customer.email
           );
           result.campaignsCreated++;
 
@@ -393,7 +400,9 @@ export async function checkNewCustomers(): Promise<ScenarioResult[]> {
             expiryDays,
             scenario.messageTemplate,
             scenario.channel,
-            customer.name
+            customer.name,
+            customer.phone,
+            customer.email
           );
           result.campaignsCreated++;
         } catch (err) {
@@ -486,7 +495,9 @@ export async function checkVIPCustomers(): Promise<ScenarioResult[]> {
             expiryDays,
             scenario.messageTemplate,
             scenario.channel,
-            customer.name
+            customer.name,
+            customer.phone,
+            customer.email
           );
           result.campaignsCreated++;
         } catch (err) {
@@ -586,7 +597,9 @@ export async function checkBirthdays(): Promise<ScenarioResult[]> {
             expiryDays,
             scenario.messageTemplate,
             scenario.channel,
-            customer.name
+            customer.name,
+            customer.phone,
+            customer.email
           );
           result.campaignsCreated++;
         } catch (err) {
