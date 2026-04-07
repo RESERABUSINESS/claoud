@@ -26,14 +26,13 @@ function LoginForm() {
       const result = await signIn("credentials", {
         email,
         password,
-        redirect: false,
+        redirect: true,
+        callbackUrl: "/dashboard",
       });
 
+      // redirect: true يوجّه تلقائياً، لكن لو فشل:
       if (result?.error) {
         setError(result.error);
-      } else {
-        router.push(callbackUrl);
-        router.refresh();
       }
     } catch {
       setError("حدث خطأ غير متوقع. حاول مرة ثانية.");

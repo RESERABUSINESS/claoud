@@ -34,16 +34,21 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // المسارات العامة — مرور مباشر
-  if (isPublicPath(pathname)) {
-    return NextResponse.next();
-  }
-
   // التحقق من وجود token
   const token = await getToken({
     req: request,
     secret: process.env.NEXTAUTH_SECRET,
   });
+
+  // مستخدم مسجّل يزور / أو صفحات auth — وجّهه للداشبورد
+  if (token && (pathname === "/" || pathname.startsWith("/auth/"))) {
+    return NextResponse.redirect(new URL("/dashboard", request.url));
+  }
+
+  // المسارات العامة — مرور مباشر
+  if (isPublicPath(pathname)) {
+    return NextResponse.next();
+  }
 
   // غير مسجّل دخول — توجيه لصفحة تسجيل الدخول
   if (!token) {
